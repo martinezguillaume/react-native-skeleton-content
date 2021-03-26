@@ -31,6 +31,16 @@ export interface ISkeletonContentProps {
   children?: any;
 }
 
+export interface IBoneProps
+  extends Pick<
+    ISkeletonContentProps,
+    'animationType' | 'boneColor' | 'highlightColor' | 'animationDirection'
+  > {
+  layoutStyle: ICustomViewStyle;
+  animationValue: Animated.SharedValue<number>;
+  componentSize: { width: number; height: number };
+}
+
 export interface IDirection {
   x: number;
   y: number;

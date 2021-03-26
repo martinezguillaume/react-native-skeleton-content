@@ -1,24 +1,24 @@
 import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { interpolateNode } from 'react-native-reanimated';
-import { interpolateColor, loop, useValue } from 'react-native-redash';
+import {
+  useSharedValue,
+  withRepeat,
+  withTiming
+} from 'react-native-reanimated';
+import Bone from './Bone';
 import {
   ICustomViewStyle,
   DEFAULT_ANIMATION_DIRECTION,
   DEFAULT_ANIMATION_TYPE,
   DEFAULT_BONE_COLOR,
-  DEFAULT_BORDER_RADIUS,
   DEFAULT_EASING,
   DEFAULT_DURATION,
   DEFAULT_HIGHLIGHT_COLOR,
   DEFAULT_LOADING,
-  ISkeletonContentProps,
-  IDirection
+  ISkeletonContentProps
 } from './Constants';
 
-const { useCode, set, cond, eq } = Animated;
-const { useState, useCallback } = React;
+const { useState, useCallback, useEffect } = React;
 
 const styles = StyleSheet.create({
   absoluteGradient: {
@@ -59,253 +59,26 @@ const SkeletonContent: React.FunctionComponent<ISkeletonContentProps> = ({
   highlightColor = DEFAULT_HIGHLIGHT_COLOR,
   children
 }) => {
-  const animationValue = useValue(0);
-  const loadingValue = useValue(isLoading ? 1 : 0);
-  const shiverValue = useValue(animationType === 'shiver' ? 1 : 0);
+  const animationValue = useSharedValue(0);
 
   const [componentSize, onLayout] = useLayout();
 
-  useCode(
-    () =>
-      cond(eq(loadingValue, 1), [
-        cond(
-          eq(shiverValue, 1),
-          [
-            set(
-              animationValue,
-              loop({
-                duration,
-                easing
-              })
-            )
-          ],
-          [
-            set(
-              animationValue,
-              loop({
-                duration: duration! / 2,
-                easing,
-                boomerang: true
-              })
-            )
-          ]
-        )
-      ]),
-    [loadingValue, shiverValue, animationValue]
-  );
-
-  const getBoneWidth = (boneLayout: ICustomViewStyle): number =>
-    (typeof boneLayout.width === 'string'
-      ? componentSize.width
-      : boneLayout.width) || 0;
-  const getBoneHeight = (boneLayout: ICustomViewStyle): number =>
-    (typeof boneLayout.height === 'string'
-      ? componentSize.height
-      : boneLayout.height) || 0;
-
-  const getGradientEndDirection = (
-    boneLayout: ICustomViewStyle
-  ): IDirection => {
-    let direction = { x: 0, y: 0 };
-    if (animationType === 'shiver') {
-      if (
-        animationDirection === 'horizontalLeft' ||
-        animationDirection === 'horizontalRight'
-      ) {
-        direction = { x: 1, y: 0 };
-      } else if (
-        animationDirection === 'verticalTop' ||
-        animationDirection === 'verticalDown'
-      ) {
-        direction = { x: 0, y: 1 };
-      } else if (
-        animationDirection === 'diagonalTopRight' ||
-        animationDirection === 'diagonalDownRight' ||
-        animationDirection === 'diagonalDownLeft' ||
-        animationDirection === 'diagonalTopLeft'
-      ) {
-        const boneWidth = getBoneWidth(boneLayout);
-        const boneHeight = getBoneHeight(boneLayout);
-        if (boneWidth && boneHeight && boneWidth > boneHeight)
-          return { x: 0, y: 1 };
-        return { x: 1, y: 0 };
-      }
-    }
-    return direction;
-  };
-
-  const getBoneStyles = (boneLayout: ICustomViewStyle): ICustomViewStyle => {
-    const { backgroundColor, borderRadius } = boneLayout;
-    const boneWidth = getBoneWidth(boneLayout);
-    const boneHeight = getBoneHeight(boneLayout);
-    const boneStyle: ICustomViewStyle = {
-      width: boneWidth,
-      height: boneHeight,
-      borderRadius: borderRadius || DEFAULT_BORDER_RADIUS,
-      ...boneLayout
-    };
-    if (animationType !== 'pulse') {
-      boneStyle.overflow = 'hidden';
-      boneStyle.backgroundColor = backgroundColor || boneColor;
-    }
-    if (
-      animationDirection === 'diagonalDownRight' ||
-      animationDirection === 'diagonalDownLeft' ||
-      animationDirection === 'diagonalTopRight' ||
-      animationDirection === 'diagonalTopLeft'
-    ) {
-      boneStyle.justifyContent = 'center';
-      boneStyle.alignItems = 'center';
-    }
-    return boneStyle;
-  };
-
-  const getGradientSize = (boneLayout: ICustomViewStyle): ICustomViewStyle => {
-    const boneWidth = getBoneWidth(boneLayout);
-    const boneHeight = getBoneHeight(boneLayout);
-    const gradientStyle: ICustomViewStyle = {};
-    if (
-      animationDirection === 'diagonalDownRight' ||
-      animationDirection === 'diagonalDownLeft' ||
-      animationDirection === 'diagonalTopRight' ||
-      animationDirection === 'diagonalTopLeft'
-    ) {
-      gradientStyle.width = boneWidth;
-      gradientStyle.height = boneHeight;
-      if (boneHeight >= boneWidth) gradientStyle.height *= 1.5;
-      else gradientStyle.width *= 1.5;
-    }
-    return gradientStyle;
-  };
-
-  const getStaticBoneStyles = (
-    boneLayout: ICustomViewStyle
-  ): (ICustomViewStyle | { backgroundColor: any })[] => {
-    const pulseStyles = [
-      getBoneStyles(boneLayout),
-      {
-        backgroundColor: interpolateColor(animationValue, {
-          inputRange: [0, 1],
-          outputRange: [boneColor!, highlightColor!]
-        })
-      }
-    ];
-    if (animationType === 'none') pulseStyles.pop();
-    return pulseStyles;
-  };
-
-  const getPositionRange = (boneLayout: ICustomViewStyle): number[] => {
-    const outputRange: number[] = [];
-    // use layout dimensions for percentages (string type)
-    const boneWidth = getBoneWidth(boneLayout);
-    const boneHeight = getBoneHeight(boneLayout);
-
-    if (animationDirection === 'horizontalRight') {
-      outputRange.push(-boneWidth, +boneWidth);
-    } else if (animationDirection === 'horizontalLeft') {
-      outputRange.push(+boneWidth, -boneWidth);
-    } else if (animationDirection === 'verticalDown') {
-      outputRange.push(-boneHeight, +boneHeight);
-    } else if (animationDirection === 'verticalTop') {
-      outputRange.push(+boneHeight, -boneHeight);
-    }
-    return outputRange;
-  };
-
-  const getGradientTransform = (boneLayout: ICustomViewStyle): object => {
-    let transform = {};
-    const boneWidth = getBoneWidth(boneLayout);
-    const boneHeight = getBoneHeight(boneLayout);
-    if (
-      animationDirection === 'verticalTop' ||
-      animationDirection === 'verticalDown' ||
-      animationDirection === 'horizontalLeft' ||
-      animationDirection === 'horizontalRight'
-    ) {
-      const interpolatedPosition = interpolateNode(animationValue, {
-        inputRange: [0, 1],
-        outputRange: getPositionRange(boneLayout)
-      });
-      if (
-        animationDirection === 'verticalTop' ||
-        animationDirection === 'verticalDown'
-      ) {
-        transform = { translateY: interpolatedPosition };
+  useEffect(() => {
+    if (isLoading) {
+      if (animationType === 'shiver') {
+        animationValue.value = withRepeat(
+          withTiming(1, { duration, easing }),
+          -1
+        );
       } else {
-        transform = { translateX: interpolatedPosition };
+        animationValue.value = withRepeat(
+          withTiming(1, { duration: duration! / 2, easing }),
+          -1,
+          true
+        );
       }
-    } else if (
-      animationDirection === 'diagonalDownRight' ||
-      animationDirection === 'diagonalTopRight' ||
-      animationDirection === 'diagonalDownLeft' ||
-      animationDirection === 'diagonalTopLeft'
-    ) {
-      const diagonal = Math.sqrt(
-        boneHeight * boneHeight + boneWidth * boneWidth
-      );
-      const mainDimension = Math.max(boneHeight, boneWidth);
-      const oppositeDimension =
-        mainDimension === boneWidth ? boneHeight : boneWidth;
-      const diagonalAngle = Math.acos(mainDimension / diagonal);
-      let rotateAngle =
-        animationDirection === 'diagonalDownRight' ||
-        animationDirection === 'diagonalTopLeft'
-          ? Math.PI / 2 - diagonalAngle
-          : Math.PI / 2 + diagonalAngle;
-      const additionalRotate =
-        animationDirection === 'diagonalDownRight' ||
-        animationDirection === 'diagonalTopLeft'
-          ? 2 * diagonalAngle
-          : -2 * diagonalAngle;
-      const distanceFactor = (diagonal + oppositeDimension) / 2;
-      if (mainDimension === boneWidth && boneWidth !== boneHeight)
-        rotateAngle += additionalRotate;
-      const sinComponent = Math.sin(diagonalAngle) * distanceFactor;
-      const cosComponent = Math.cos(diagonalAngle) * distanceFactor;
-      let xOutputRange = [0, 0];
-      let yOutputRange = [0, 0];
-      if (
-        animationDirection === 'diagonalDownRight' ||
-        animationDirection === 'diagonalTopLeft'
-      ) {
-        xOutputRange =
-          animationDirection === 'diagonalDownRight'
-            ? [-sinComponent, sinComponent]
-            : [sinComponent, -sinComponent];
-        yOutputRange =
-          animationDirection === 'diagonalDownRight'
-            ? [-cosComponent, cosComponent]
-            : [cosComponent, -cosComponent];
-      } else {
-        xOutputRange =
-          animationDirection === 'diagonalDownLeft'
-            ? [-sinComponent, sinComponent]
-            : [sinComponent, -sinComponent];
-        yOutputRange =
-          animationDirection === 'diagonalDownLeft'
-            ? [cosComponent, -cosComponent]
-            : [-cosComponent, cosComponent];
-        if (mainDimension === boneHeight && boneWidth !== boneHeight) {
-          xOutputRange.reverse();
-          yOutputRange.reverse();
-        }
-      }
-      let translateX = interpolateNode(animationValue, {
-        inputRange: [0, 1],
-        outputRange: xOutputRange
-      });
-      let translateY = interpolateNode(animationValue, {
-        inputRange: [0, 1],
-        outputRange: yOutputRange
-      });
-      // swapping the translates if width is the main dim
-      if (mainDimension === boneWidth)
-        [translateX, translateY] = [translateY, translateX];
-      const rotate = `${rotateAngle}rad`;
-      transform = { translateX, translateY, rotate };
     }
-    return transform;
-  };
+  }, [animationType, animationValue.value, duration, easing, isLoading]);
 
   const getBoneContainer = (
     layoutStyle: ICustomViewStyle,
@@ -316,38 +89,6 @@ const SkeletonContent: React.FunctionComponent<ISkeletonContentProps> = ({
       {childrenBones}
     </View>
   );
-
-  const getStaticBone = (
-    layoutStyle: ICustomViewStyle,
-    key: number | string
-  ): JSX.Element => (
-    <Animated.View
-      key={layoutStyle.key || key}
-      style={getStaticBoneStyles(layoutStyle)}
-    />
-  );
-
-  const getShiverBone = (
-    layoutStyle: ICustomViewStyle,
-    key: number | string
-  ): JSX.Element => {
-    const animatedStyle: any = {
-      transform: [getGradientTransform(layoutStyle)],
-      ...getGradientSize(layoutStyle)
-    };
-    return (
-      <View key={layoutStyle.key || key} style={getBoneStyles(layoutStyle)}>
-        <Animated.View style={[styles.absoluteGradient, animatedStyle]}>
-          <LinearGradient
-            colors={[boneColor!, highlightColor!, boneColor!]}
-            start={{ x: 0, y: 0 }}
-            end={getGradientEndDirection(layoutStyle)}
-            style={styles.gradientChild}
-          />
-        </Animated.View>
-      </View>
-    );
-  };
 
   const getBones = (
     bonesLayout: ICustomViewStyle[] | undefined,
@@ -367,19 +108,34 @@ const SkeletonContent: React.FunctionComponent<ISkeletonContentProps> = ({
             containerPrefix
           );
         }
-        if (animationType === 'pulse' || animationType === 'none') {
-          return getStaticBone(bonesLayout[i], prefix ? `${prefix}_${i}` : i);
-        }
-        return getShiverBone(bonesLayout[i], prefix ? `${prefix}_${i}` : i);
+        return (
+          <Bone
+            key={prefix ? `${prefix}_${i}` : i}
+            animationType={animationType}
+            boneColor={boneColor}
+            highlightColor={highlightColor}
+            animationDirection={animationDirection}
+            layoutStyle={bonesLayout[i]}
+            animationValue={animationValue}
+            componentSize={componentSize}
+          />
+        );
       });
       // no layout, matching children's layout
     }
     return React.Children.map(childrenItems, (child, i) => {
-      const styling = child.props.style || {};
-      if (animationType === 'pulse' || animationType === 'none') {
-        return getStaticBone(styling, i);
-      }
-      return getShiverBone(styling, i);
+      return (
+        <Bone
+          key={prefix ? `${prefix}_${i}` : i}
+          animationType={animationType}
+          boneColor={boneColor}
+          highlightColor={highlightColor}
+          animationDirection={animationDirection}
+          layoutStyle={child.props.style || {}}
+          animationValue={animationValue}
+          componentSize={componentSize}
+        />
+      );
     });
   };
 
