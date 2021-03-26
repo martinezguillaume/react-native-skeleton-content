@@ -1,8 +1,7 @@
-import React, { FC, memo, useMemo } from 'react';
+import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   interpolateColor,
-  interpolateNode,
   useAnimatedStyle
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +11,8 @@ import {
   ICustomViewStyle,
   IDirection
 } from './Constants';
+
+const { memo, useMemo } = React;
 
 const styles = StyleSheet.create({
   absoluteGradient: {
@@ -29,7 +30,10 @@ const styles = StyleSheet.create({
   }
 });
 
-const BoneComponent: FC<IBoneProps> = ({
+const interpolate = (value: number, outputRange: number[]) =>
+  outputRange[0] * (1 - value) + outputRange[1] * value;
+
+const BoneComponent: React.FC<IBoneProps> = ({
   layoutStyle,
   componentSize,
   animationType,
@@ -164,10 +168,10 @@ const BoneComponent: FC<IBoneProps> = ({
       animationDirection === 'horizontalLeft' ||
       animationDirection === 'horizontalRight'
     ) {
-      const interpolatedPosition = interpolateNode(animationValue.value, {
-        inputRange: [0, 1],
-        outputRange: positionRange
-      });
+      const interpolatedPosition = interpolate(
+        animationValue.value,
+        positionRange
+      );
       if (
         animationDirection === 'verticalTop' ||
         animationDirection === 'verticalDown'
@@ -232,14 +236,8 @@ const BoneComponent: FC<IBoneProps> = ({
           yOutputRange.reverse();
         }
       }
-      let translateX = interpolateNode(animationValue.value, {
-        inputRange: [0, 1],
-        outputRange: xOutputRange
-      });
-      let translateY = interpolateNode(animationValue.value, {
-        inputRange: [0, 1],
-        outputRange: yOutputRange
-      });
+      let translateX = interpolate(animationValue.value, xOutputRange);
+      let translateY = interpolate(animationValue.value, yOutputRange);
       // swapping the translates if width is the main dim
       if (mainDimension === boneWidth)
         [translateX, translateY] = [translateY, translateX];
