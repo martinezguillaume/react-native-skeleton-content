@@ -30,8 +30,11 @@ const styles = StyleSheet.create({
   }
 });
 
-const interpolate = (value: number, outputRange: number[]) =>
-  outputRange[0] * (1 - value) + outputRange[1] * value;
+const interpolate = (value: number, outputRange: number[]) => {
+  'worklet';
+
+  return outputRange[0] * (1 - value) + outputRange[1] * value;
+};
 
 const BoneComponent: React.FC<IBoneProps> = ({
   layoutStyle,
